@@ -107,16 +107,6 @@ class TagModel:
         row_count = self._db.insert_single_data(TagModel.TAG_TABLE, query_columns_dict)
         return row_count
 
-    def insert_multiple(self, daily_report_docs):
-        query_columns = [
-            'datetime',
-            'tag_id',
-            'value'
-        ]
-
-        row_count = self._db.insert_multiple_data(TagModel.TAG_TABLE, query_columns, daily_report_docs)
-        return row_count
-
 class TagMasterModel:
     TagMaster_TABLE = 'TagMaster'
 

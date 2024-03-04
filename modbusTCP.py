@@ -29,25 +29,21 @@ class ModbusTCP(Thread):
 
         Isconnect = 0
         count=0
-        client = ModbusClient(host=self.NetworkAddress, port=int(self.Port), unit_id=int(self.SlavID),
-                              auto_open=True,
-                              auto_close=True)
+
         while True:
-            tag_DB_value_list = []
-            tag_API_value_list = []
+
             taglist = TagMasterModel().find_by_DriverDetailID(self.DriverDetailID[0])
 
-
             try:
-
 
                 for tagdata in taglist:
                     count=count+1
                     print(tagdata)
                     # if(tagdata[8]=='YES'):
-
-                    # data=""
-                    data = client.read_input_registers(int(tagdata[3]), int(tagdata[4]))
+                    client = ModbusClient(host=self.NetworkAddress, port=int(self.Port), unit_id=int(self.SlavID),
+                                          auto_open=True,
+                                          auto_close=True)
+                    data=""
                     if(tagdata[5]=='INPUT REGISTER'):
 
                         data = client.read_input_registers(int(tagdata[3]), int(tagdata[4]))
@@ -66,12 +62,9 @@ class ModbusTCP(Thread):
                     # print(unpacked_float)
                     now = datetime.now()
                     dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
-                    tagvalue=unpacked_float
-
-                    tag_value_ = (tagdata[0], tagvalue, dt_string)
-
+                    tagvalue=self.kelvinToCelsius(unpacked_float)
                     if(tagdata[9]=='YES'):
-                        tag_DB_value_list.append(tag_value_)
+
                         TagModel().insert(tagdata[0], tagvalue, dt_string)
                             # else:
                             #     Isconnect = 2
@@ -85,7 +78,6 @@ class ModbusTCP(Thread):
                             #     print("3")
                                 # print(self.client.connected)
                     elif(tagdata[9]=='NO'):
-                        tag_API_value_list.append(tag_value_)
                         tagName = TagMasterModel().find_by_TagID(tagdata[0])
                         RethinkDatabase().InsertData(self.DriverName, now, tagName[2], tagvalue, count)
             except:
