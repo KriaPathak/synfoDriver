@@ -3,106 +3,125 @@ from threading import Thread
 from datetime import datetime
 import time
 
+from customsMethod import structpack, structunpack
+from logger import get_logger
 from pyModbusTCP.client import ModbusClient
-
 from NoSqlDB import RethinkDatabase
 from model import TagMasterModel, TagModel, DeviceConnectionLog
+from servercilentConnection import ApiServer
+
+logger = get_logger()
 
 
 class ModbusTCP(Thread):
 
-    def __init__(self,DriverDetailID, slavid,client,FrequncyOfGetData,NetworkAddress,Port,DriverName):
+    def __init__(self, DriverDetailID, slav_id, client, FrequncyOfGetData, NetworkAddress, Port, DriverName, datetime):
         super(ModbusTCP, self).__init__()
-        self.DriverDetailID=DriverDetailID,
-        self.slavid = slavid,
-        self.client=client
-        self.FrequncyOfGetData=FrequncyOfGetData
-        self.NetworkAddress=NetworkAddress
-        self.Port=Port
-        self.SlavID=slavid
-        self.DriverName=DriverName
+        self.DriverDetailID = DriverDetailID,
+        self.slavid = slav_id,
+        self.client = client
+        self.FrequncyOfGetData = FrequncyOfGetData
+        self.NetworkAddress = NetworkAddress
+        self.Port = Port
+        self.SlavID = slav_id
+        self.DriverName = DriverName
+        self.datetime = datetime
 
-    def kelvinToCelsius(self,kelvin):
+    def kelvinToCelsius(self, kelvin):
         return kelvin - 273.15
+
     def getDataFromRTU(self):
 
-
         Isconnect = 0
-        count=0
+        count = 0
+        client = ModbusClient(host=self.NetworkAddress, port=int(self.Port), unit_id=int(self.SlavID))
+
+        if client.open() and Isconnect == 0:
+            now = datetime.now()
+            dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
+            DeviceConnectionLog().insert(self.DriverDetailID[0], client.open(), 'connect device',
+                                         dt_string)
+            Isconnect = 1
 
         while True:
 
+            tag_DBvalue_list = []
+            tag_APIvalue_list = []
             taglist = TagMasterModel().find_by_DriverDetailID(self.DriverDetailID[0])
+            random_string = ""
 
             try:
 
-                for tagdata in taglist:
-                    count=count+1
-                    print(tagdata)
-                    # if(tagdata[8]=='YES'):
-                    client = ModbusClient(host=self.NetworkAddress, port=int(self.Port), unit_id=int(self.SlavID),
-                                          auto_open=True,
-                                          auto_close=True)
-                    data=""
-                    if(tagdata[5]=='INPUT REGISTER'):
+                if client.open():
+                    for tag_data in taglist:
 
-                        data = client.read_input_registers(int(tagdata[3]), int(tagdata[4]))
-                    elif(tagdata[5] == 'HOLDING REGISTER'):
+                        count = count + 1
+                        data = ""
+                        packed_string = ""
 
-                        data = client.read_holding_registers(int(tagdata[3]), int(tagdata[4]))
-                        packed_string=""
-                        # print("data",data)
-                    if(tagdata[7]=='NO'):
-                        packed_string = struct.pack("HH", data[0], data[1])
-                    else:
-                        packed_string = struct.pack("HH", data[1], data[0])
+                        if tag_data[5] == 'INPUT REGISTER':
+                            data = client.read_input_registers(int(tag_data[3]), int(tag_data[4]))
 
+                        elif tag_data[5] == 'HOLDING REGISTER':
+                            data = client.read_holding_registers(int(tag_data[3]), int(tag_data[4]))
 
-                    unpacked_float = struct.unpack("f", packed_string)[0]
-                    # print(unpacked_float)
-                    now = datetime.now()
-                    dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
-                    tagvalue=self.kelvinToCelsius(unpacked_float)
-                    if(tagdata[9]=='YES'):
+                        if tag_data[7] == 'NO' and len(data) != 0:
+                            packed_string = structpack(data[0], data[1])
 
-                        TagModel().insert(tagdata[0], tagvalue, dt_string)
-                            # else:
-                            #     Isconnect = 2
-                            #     if (self.client.connected==False and Isconnect == 2):
-                            #         now = datetime.now()
-                            #         dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
-                            #         DeviceConnectionLog().insert(self.DriverDetailID[0], self.client.connected,
-                            #                                      'disconnect device', dt_string)
-                            #         Isconnect = 3
-                            #     print(res)
-                            #     print("3")
-                                # print(self.client.connected)
-                    elif(tagdata[9]=='NO'):
-                        tagName = TagMasterModel().find_by_TagID(tagdata[0])
-                        RethinkDatabase().InsertData(self.DriverName, now, tagName[2], tagvalue, count)
-            except:
-            #
-            #     if (self.client.connected == False and Isconnect != 3):
-            #         now = datetime.now()
-            #         dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
-            #         DeviceConnectionLog().insert(self.DriverDetailID[0], self.client.connected,
-            #                                      'disconnect device', dt_string)
-            #         Isconnect = 5
-               self.getDataFromRTU()
+                        elif tag_data[7] == 'YES' and len(data) != 0:
+                            packed_string = structpack(data[1], data[0])
+
+                        if len(packed_string) != 0:
+                            tagvalue = structunpack(packed_string)
+
+                            if tag_data[9] == 'YES':
+                                tag_value_ = (tag_data[0], tagvalue, self.datetime)
+                                tag_DBvalue_list.append(tag_value_)
+
+                                # else:
+                                #     Isconnect = 2
+                                #     if (self.client.connected==False and Isconnect == 2):
+                                #         now = datetime.now()
+                                #         dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
+                                #         DeviceConnectionLog().insert(self.DriverDetailID[0], self.client.connected,
+                                #                                      'disconnect device', dt_string)
+                                #         Isconnect = 3
+                                #     print(res)
+                                #     print("3")
+
+                            elif (tag_data[9] == 'NO'):
+                                tagName = TagMasterModel().find_by_TagID(tag_data[0])
+                                tag_apivalue_ = (tag_data[0], tagvalue, self.datetime)
+                                tag_APIvalue_list.append(tag_apivalue_)
+                                data = "tagindex" + ' ' + str(tag_data[0]) + ' ' + "tagvalue" + str(tagvalue)
+                                random_string = random_string + ' '.join(data)
+                                # RethinkDatabase().InsertData(self.DriverName, now, tagName[2], tagvalue, count)
+
+                if len(tag_DBvalue_list) != 0:
+                    TagModel().insert_multiple(tag_DBvalue_list)
+                if len(tag_APIvalue_list) != 0:
+                    print("random_string", random_string)
+                    # ApiServer().serverconnection(random_string)
+                    # ApiServer().serverconnection(tag_APIvalue_list)
 
 
+
+            except Exception as ex:
+                print("nooooo")
+                logger.exception(ex)
+                #
+                #     if (self.client.connected == False and Isconnect != 3):
+                #         now = datetime.now()
+                #         dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
+                #         DeviceConnectionLog().insert(self.DriverDetailID[0], self.client.connected,
+                #                                      'disconnect device', dt_string)
+                #         Isconnect = 5
+                #    self.getDataFromRTU()
+            client.close()
             time.sleep(self.FrequncyOfGetData)
 
     def run(self) -> None:
-
-        self.getDataFromRTU()
-
-        # time.sleep(1)
-
-
-
-
-
-
-
-
+        try:
+            self.getDataFromRTU()
+        except Exception as ex:
+            logger.exception(ex)

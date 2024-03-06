@@ -7,13 +7,14 @@ from model import TagMasterModel, TagModel, DeviceConnectionLog
 
 class ModbusRTU(Thread):
 
-    def __init__(self,DriverDetailID, slavid,client,FrequncyOfGetData,DriverName):
+    def __init__(self,DriverDetailID, slavid,client,FrequncyOfGetData,DriverName,datetime):
         super(ModbusRTU, self).__init__()
         self.DriverDetailID=DriverDetailID,
         self.slavid = slavid,
         self.client=client
         self.FrequncyOfGetData=FrequncyOfGetData
         self.DriverName=DriverName
+        self.datetime=datetime
 
     def getDataFromRTU(self):
 
@@ -56,13 +57,12 @@ class ModbusRTU(Thread):
 
                             data = struct.unpack("f", packed_string)
                             unpacked_float = struct.unpack("f", packed_string)[0]
-                            print(unpacked_float)
-                            now = datetime.now()
-                            dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
+
+
 
                             # if(tagdata[9]=='YES'):
                             #     print("yyyyyyy")
-                            TagModel().insert(tagdata[0], unpacked_float, dt_string)
+                            TagModel().insert(tagdata[0], unpacked_float, self.datetime)
                         else:
                             Isconnect = 2
                             if (self.client.connected==False and Isconnect == 2):
