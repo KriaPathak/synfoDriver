@@ -6,7 +6,7 @@ import time
 from customsMethod import structpack, structunpack
 from logger import get_logger
 from pyModbusTCP.client import ModbusClient
-from NoSqlDB import RethinkDatabase
+# from NoSqlDB import RethinkDatabase
 from model import TagMasterModel, TagModel, DeviceConnectionLog
 from servercilentConnection import ApiServer
 
@@ -34,6 +34,7 @@ class ModbusTCP(Thread):
 
         Isconnect = 0
         count = 0
+
         client = ModbusClient(host=self.NetworkAddress, port=int(self.Port), unit_id=int(self.SlavID))
 
         if client.open() and Isconnect == 0:
@@ -42,6 +43,12 @@ class ModbusTCP(Thread):
             DeviceConnectionLog().insert(self.DriverDetailID[0], client.open(), 'connect device',
                                          dt_string)
             Isconnect = 1
+        else:
+            now = datetime.now()
+            dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
+            DeviceConnectionLog().insert(self.DriverDetailID[0], client.open(), 'Device is not connected',
+                                         dt_string)
+            Isconnect = 0
 
         while True:
 
@@ -53,6 +60,7 @@ class ModbusTCP(Thread):
             try:
 
                 if client.open():
+                    print(taglist)
                     for tag_data in taglist:
 
                         count = count + 1
@@ -62,13 +70,14 @@ class ModbusTCP(Thread):
                         if tag_data[5] == 'INPUT REGISTER':
                             data = client.read_input_registers(int(tag_data[3]), int(tag_data[4]))
 
+
                         elif tag_data[5] == 'HOLDING REGISTER':
                             data = client.read_holding_registers(int(tag_data[3]), int(tag_data[4]))
 
-                        if tag_data[7] == 'NO' and len(data) != 0:
+                        if tag_data[7] == 'NO' and data != "":
                             packed_string = structpack(data[0], data[1])
 
-                        elif tag_data[7] == 'YES' and len(data) != 0:
+                        elif tag_data[7] == 'YES' and data != "":
                             packed_string = structpack(data[1], data[0])
 
                         if len(packed_string) != 0:
@@ -98,8 +107,11 @@ class ModbusTCP(Thread):
                                 # RethinkDatabase().InsertData(self.DriverName, now, tagName[2], tagvalue, count)
 
                 if len(tag_DBvalue_list) != 0:
+                    print("network address", self.NetworkAddress)
+                    print("tag_DBvalue_list",tag_DBvalue_list)
                     TagModel().insert_multiple(tag_DBvalue_list)
                 if len(tag_APIvalue_list) != 0:
+                    print("network address", self.NetworkAddress)
                     print("random_string", random_string)
                     # ApiServer().serverconnection(random_string)
                     # ApiServer().serverconnection(tag_APIvalue_list)
@@ -109,14 +121,14 @@ class ModbusTCP(Thread):
             except Exception as ex:
                 print("nooooo")
                 logger.exception(ex)
-                #
-                #     if (self.client.connected == False and Isconnect != 3):
-                #         now = datetime.now()
-                #         dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
-                #         DeviceConnectionLog().insert(self.DriverDetailID[0], self.client.connected,
-                #                                      'disconnect device', dt_string)
-                #         Isconnect = 5
-                #    self.getDataFromRTU()
+                Isconnect = 3
+                if (self.client.open() == False and Isconnect != 3):
+                    now = datetime.now()
+                    dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
+                    DeviceConnectionLog().insert(self.DriverDetailID[0], self.client.open(),
+                                                 'disconnect device', dt_string)
+                    Isconnect = 5
+                self.getDataFromRTU()
             client.close()
             time.sleep(self.FrequncyOfGetData)
 

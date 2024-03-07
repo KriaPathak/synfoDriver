@@ -2,13 +2,13 @@ from modbus import ModbusRTU
 from modbusTCP import ModbusTCP
 from model import DriverDetail, DriverMaster
 from datetime import datetime
-
+from logger import get_logger
 from pymodbus.client import ModbusSerialClient as ModbusClient
+
+logger = get_logger()
 
 
 def modbusConnector():
-    # try:
-
     client = ""
     data = DriverDetail().find_all_driver_detail()
     print(data)
@@ -26,7 +26,7 @@ def modbusConnector():
     now = datetime.now()
     dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
     for driverDetail in data:
-        # print(driverDetail)
+
         device_status = driverDetail[12]
         DevicedetailName = driverDetail[1]
         FrequncyOfGetData = driverDetail[2]
@@ -63,6 +63,7 @@ def modbusConnector():
 
                     rtu = ModbusRTU(driverDetail[0], SlavID, client, FrequncyOfGetData, driverDetail[1], dt_string)
                     rtu.start()
+
         elif DriverMasterID == 1:
             if Active:
                 tcp = ModbusTCP(driverDetail[0], SlavID, client, FrequncyOfGetData, NetworkAddress, Port,
@@ -70,8 +71,9 @@ def modbusConnector():
                 tcp.start()
 
 
-# except:
-#     modbusConnector()
 if __name__ == '__main__':
-    modbusConnector()
+    try:
+        modbusConnector()
+    except Exception as ex:
+        logger.exception(ex)
     # garbej collection remove
