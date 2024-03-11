@@ -1,6 +1,6 @@
 from modbus import ModbusRTU
 from modbusTCP import ModbusTCP
-from model import DriverDetail, DriverMaster
+from model import DriverDetail
 from datetime import datetime
 from logger import get_logger
 from pymodbus.client import ModbusSerialClient as ModbusClient
@@ -11,17 +11,11 @@ logger = get_logger()
 def modbusConnector():
     client = ""
     data = DriverDetail().find_all_driver_detail()
-    print(data)
-    DevicedetailNameI = ""
-    FrequncyOfGetDataI = 0
     BaurdRateI = 0
     DatabitsI = 0
     CommunicationPortI = ""
     ParityI = ""
     StopBitI = 0
-    SlavIDI = 0
-    DriverMasterIDI = 0
-    ActiveI = 0
 
     now = datetime.now()
     dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
@@ -76,4 +70,4 @@ if __name__ == '__main__':
         modbusConnector()
     except Exception as ex:
         logger.exception(ex)
-    # garbej collection remove
+

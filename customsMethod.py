@@ -1,5 +1,6 @@
 import struct
 
+from datetime import datetime
 from pyModbusTCP.client import ModbusClient
 
 
@@ -24,3 +25,9 @@ def structpack(d1, d2):
 
 def structunpack(packed_string):
     return struct.unpack("f", packed_string)[0]
+
+
+def currentDateTime():
+    now = datetime.now()
+    dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
+    return dt_string
