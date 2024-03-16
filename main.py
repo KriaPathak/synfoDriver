@@ -1,5 +1,6 @@
 from modbus import ModbusRTU
 from modbusTCP import ModbusTCP
+from modbuswithoutloop import modbuswitoutloop
 from model import DriverDetail
 from datetime import datetime
 from logger import get_logger

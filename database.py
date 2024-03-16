@@ -44,7 +44,7 @@ class Database:
                 f"{column_name} {query_columns_dict[column_name][0]} ?"
                 for column_name in sorted(query_columns_dict.keys())
             ])
-            sql = f"SELECT * FROM {table} WHERE {selection_list}"
+            sql = f"SELECT * FROM {table} WHERE {selection_list} "
 
             val = tuple(query_columns_dict[column_name][1] for column_name in sorted(query_columns_dict.keys()))
 
@@ -53,7 +53,24 @@ class Database:
         result = self.mycursor.fetchall()
 
         return result
+    def get_multiple_data_orderby(self, table, query_columns_dict):
+        if query_columns_dict == None:
+            sql = f"SELECT * FROM {table}"
+            self.mycursor.execute(sql)
+        else:
+            selection_list = " AND ".join([
+                f"{column_name} {query_columns_dict[column_name][0]} ?"
+                for column_name in sorted(query_columns_dict.keys())
+            ])
+            sql = f"SELECT * FROM {table} WHERE {selection_list} order by TagAddress"
 
+            val = tuple(query_columns_dict[column_name][1] for column_name in sorted(query_columns_dict.keys()))
+
+            self.mycursor.execute(sql, val)
+
+        result = self.mycursor.fetchall()
+
+        return result
 
 
     def insert_single_data(self, table, query_columns_dict):

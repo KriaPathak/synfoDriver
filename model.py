@@ -137,7 +137,7 @@ class TagMasterModel:
         query_columns_dict = {
             'DriverDetailID': (column_compare['EQUAL_TO'], driver_detail_id)
         }
-        result = self._db.get_multiple_data(TagMasterModel.TagMaster_TABLE, query_columns_dict)
+        result = self._db.get_multiple_data_orderby(TagMasterModel.TagMaster_TABLE, query_columns_dict)
         return result
 
     def find_by_TagID(self, TagID):
