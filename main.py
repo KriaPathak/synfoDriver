@@ -1,12 +1,10 @@
 from modbus import ModbusRTU
 from modbusTCP import ModbusTCP
-from modbuswithoutloop import modbuswitoutloop
+from modbuswithoutloop import ModbusMultiReg
 from model import DriverDetail
 from datetime import datetime
-from logger import get_logger
 from pymodbus.client import ModbusSerialClient as ModbusClient
 
-logger = get_logger()
 
 
 def modbusConnector():
@@ -61,7 +59,7 @@ def modbusConnector():
 
         elif DriverMasterID == 1:
             if Active:
-                tcp = ModbusTCP(driverDetail[0], SlavID, client, FrequncyOfGetData, NetworkAddress, Port,
+                tcp = ModbusMultiReg(driverDetail[0], SlavID, client, FrequncyOfGetData, NetworkAddress, Port,
                                 driverDetail[1], dt_string)
                 tcp.start()
 
@@ -70,5 +68,5 @@ if __name__ == '__main__':
     try:
         modbusConnector()
     except Exception as ex:
-        logger.exception(ex)
+        print(ex)
 

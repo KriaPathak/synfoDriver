@@ -1,14 +1,13 @@
 from threading import Thread
-from datetime import datetime
 import time
 from customsMethod import structpack, structunpack, currentDateTime
-from logger import get_logger
 from pyModbusTCP.client import ModbusClient
 from model import TagMasterModel, TagModel, DeviceConnectionLog, DeviceException
+# import logging
+# logger = logging.getLogger('app_logger')
+from logger import get_logger
 
 logger = get_logger()
-
-
 class ModbusTCP(Thread):
     retryAttemptsLeft = 3
 
@@ -21,41 +20,40 @@ class ModbusTCP(Thread):
         self.Port = Port
         self.SlavID = slav_id
         self.DriverName = DriverName
+        self.auto_open = False
+        self.auto_close = False
+        self.modbus_client = None
+        self.response = None
+
         # self.datetime = datetime
 
-    def getDataFromRTU(self):
+    def getDataFromTCP(self):
 
-        client = ModbusClient(host=self.NetworkAddress, port=int(self.Port), unit_id=int(self.SlavID))
         if self.retryAttemptsLeft > 0:
-            client.open()
-        else:
-            return
-        print("open", client.is_open)
-        if client.is_open:
-            DeviceConnectionLog().insert(self.DriverDetailID[0], True, "Driver open", currentDateTime())
+
+            self.modbus_connection()
+            DeviceConnectionLog().insert(self.DriverDetailID[0], True, "Driver connection open"+str(self.retryAttemptsLeft)+ "Network" + self.NetworkAddress + "slavId" + str(
+                                             self.SlavID), currentDateTime())
 
         tag_list = TagMasterModel().find_by_DriverDetailID(self.DriverDetailID[0])
 
-        while client.is_open:
+        while self.modbus_client:
             datetime = currentDateTime()
             tag_db_value_list = []
             tag_api_value_list = []
             random_string = ""
 
             try:
-
-                # print("net", self.NetworkAddress)
-
                 for tag_data in tag_list:
 
                     data = ""
                     packed_string = ""
 
                     if tag_data[5] == 'INPUT REGISTER':
-                        data = client.read_input_registers(int(tag_data[3]), int(tag_data[4]))
+                        data = self.modbus_client.read_input_registers(int(tag_data[3]), int(tag_data[4]))
 
                     elif tag_data[5] == 'HOLDING REGISTER':
-                        data = client.read_holding_registers(int(tag_data[3]), int(tag_data[4]))
+                        data = self.modbus_client.read_holding_registers(int(tag_data[3]), int(tag_data[4]))
 
                     if tag_data[7] == 'NO' and data != "" and data != 'None':
                         packed_string = structpack(data[0], data[1])
@@ -80,6 +78,7 @@ class ModbusTCP(Thread):
                 if len(tag_db_value_list) != 0:
                     print("tag_db_value_list", str(tag_db_value_list) + self.NetworkAddress + str(self.SlavID))
                     TagModel().insert_multiple(tag_db_value_list)
+                    logger.info(f'tag_db_value_list {str(tag_db_value_list)} Server at: {self.NetworkAddress}slavId {self.SlavID}')
 
                 if len(tag_api_value_list) != 0:
                     len(tag_api_value_list)
@@ -87,32 +86,48 @@ class ModbusTCP(Thread):
                     # ApiServer().serverconnection(random_string)
                     # ApiServer().serverconnection(tag_api_value_list)
 
-                # client.close()
-                # DeviceConnectionLog().insert(self.DriverDetailID[0], False, 'Client Closed with Successful tags import',
-                #                              currentDateTime())
             except Exception as ex:
-
                 print("exception", ex)
-                client.close()
+
+                self.modbus_client = None
 
                 DeviceConnectionLog().insert(self.DriverDetailID[0], False,
                                              'Client Closed with Exception : Attempts Left' + str(
-                                                 self.retryAttemptsLeft),
+                                                 self.retryAttemptsLeft)+"Network"+self.NetworkAddress+"slavId"+str(self.SlavID),
                                              currentDateTime())
-                self.retryAttemptsLeft = self.retryAttemptsLeft - 1
-                driverID = DeviceConnectionLog().find_driver_detail_id(self.DriverDetailID[0])
 
-                if driverID[0] != 0:
-                    DeviceException().insert(str(ex), currentDateTime(), driverID[0])
-            time.sleep(120)
+                self.retryAttemptsLeft = self.retryAttemptsLeft - 1
+
+            self.modbus_client.close()
+
+            time.sleep(1)
+
+    def modbus_connection(self):
+        if not self.modbus_client:
+
+            self.modbus_client = ModbusClient(host=self.NetworkAddress, port=int(self.Port), unit_id=int(self.SlavID),
+                                              auto_open=self.auto_open, auto_close=self.auto_close)
+            if self.modbus_client.open():
+                print("Connection modbus Server at:", self.NetworkAddress)
+                logger.info(f'Connection modbus Server at:{self.NetworkAddress} slavId {self.SlavID}')
+            else:
+                logger.info(f'Connection fail modbus Server at:{self.NetworkAddress} slavId {self.SlavID}')
+                print("fail to connect", self.NetworkAddress)
+                self.modbus_client = None
 
     def run(self) -> None:
         try:
-            self.getDataFromRTU()
+            self.getDataFromTCP()
         except Exception as ex:
-
+            logger.error(f'An error modbus Server at {self.NetworkAddress}, restarting process.')
+            logger.exception(ex)
             print("exception", ex)
+            DeviceConnectionLog().insert(self.DriverDetailID[0], False,
+                                         'Client Closed with Exception : Attempts Left' + str(
+                                             self.retryAttemptsLeft) + "Network" + self.NetworkAddress + "slavId" + str(
+                                             self.SlavID),
+                                         currentDateTime())
 
-            driverID = DeviceConnectionLog().find_driver_detail_id(self.DriverDetailID[0])
-            if driverID[0] != 0:
-                DeviceException().insert(str(ex), currentDateTime(), driverID[0])
+            # DeviceConnectionLogID = DeviceConnectionLog().find_driver_detail_id(self.DriverDetailID[0])
+            # if DeviceConnectionLogID[0] != 0:
+            #     DeviceException().insert(str(ex), currentDateTime(), DeviceConnectionLogID[0])

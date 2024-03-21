@@ -195,6 +195,7 @@ class DeviceConnectionLog:
         result = self._db.update_single_data(DeviceConnectionLog.DeviceConnectionLog_TABLE, DriverDetailID, status)
         return result
 
+
 class DeviceException:
     DeviceException_TABLE = 'DeviceException'
 
@@ -220,12 +221,5 @@ class DeviceException:
             'deviceConnectionId': DriverDetailID
         }
 
-
         row_count = self._db.insert_single_data(DeviceException.DeviceException_TABLE, query_columns_dict)
         return row_count
-
-
-
-
-
-

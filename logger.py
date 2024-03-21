@@ -4,9 +4,9 @@ import json
 import os
 import psutil
 from logging.handlers import RotatingFileHandler
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
 
-# load_dotenv()
+load_dotenv()
 
 
 def get_logger():
