@@ -22,14 +22,7 @@ class ModbusMultiReg(Thread):
 
     def getDataFromMultiReg(self):
 
-        # client = ModbusClient(host=self.NetworkAddress, port=int(self.Port), unit_id=int(self.SlavID))
-        # if self.retryAttemptsLeft > 0:
-        #     client.open()
-        # else:
-        #     return
-        # print("open", client.is_open)
-        # if client.is_open:
-        #     DeviceConnectionLog().insert(self.DriverDetailID[0], True, "Driver open", currentDateTime())
+
 
         tag_list = TagMasterModel().find_by_DriverDetailID(self.DriverDetailID[0])
 
@@ -44,19 +37,6 @@ class ModbusMultiReg(Thread):
                     data = ""
                     packed_string = ""
 
-                    # if tag_data[5] == 'INPUT REGISTER':
-                    #     data = client.read_input_registers(int(tag_data[3]), int(tag_data[4]))
-                    #
-                    # elif tag_data[5] == 'HOLDING REGISTER':
-                    #     data = client.read_holding_registers(int(tag_data[3]), int(tag_data[4]))
-                    #
-                    # if tag_data[7] == 'NO' and data != "" and data != 'None':
-                    #     packed_string = structpack(data[0], data[1])
-                    #
-                    # elif tag_data[7] == 'YES' and data != "" and data != 'None':
-                    #     packed_string = structpack(data[1], data[0])
-                    #
-                    # if len(packed_string) != 0:
                     tag_value = 5642
 
                     if tag_data[9] == 'YES':
@@ -101,9 +81,7 @@ class ModbusMultiReg(Thread):
                     DeviceException().insert(str(ex), currentDateTime(), DeviceConnectionLogID[0])
             time.sleep(10)
 
-        # client.close()
-        # DeviceConnectionLog().insert(self.DriverDetailID[0], False, 'Client Closed with Successful tags import',
-        #                              currentDateTime())
+
 
     def run(self) -> None:
         try:

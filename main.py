@@ -1,10 +1,11 @@
+from customsMethod import currentDateTime
 from modbus import ModbusRTU
-from modbusTCP import ModbusTCP
+from modbusTCP import ModbusTCP, logger
+from modbuscoonection import ModbusConnection
 from modbuswithoutloop import ModbusMultiReg
-from model import DriverDetail
+from model import DriverDetail, DeviceConnectionLog
 from datetime import datetime
 from pymodbus.client import ModbusSerialClient as ModbusClient
-
 
 
 def modbusConnector():
@@ -33,35 +34,45 @@ def modbusConnector():
         SlavID = driverDetail[10]
         DriverMasterID = driverDetail[11]
         Active = driverDetail[12]
+        try:
+            if DriverMasterID == 2:
+                if Active:
+                    if BaurdRateI != BaurdRate and DatabitsI != Databits and CommunicationPortI != CommunicationPort and ParityI != Parity and StopBitI != StopBit:
+                        client = ModbusClient(
+                            method='rtu',
+                            port=CommunicationPort,
+                            baudrate=BaurdRate,
+                            timeout=StopBit,
+                            parity=Parity[0:1],
+                            stopbits=StopBit,
+                            bytesize=Databits
+                        )
+                        BaurdRateI = BaurdRate
+                        DatabitsI = Databits
+                        CommunicationPortI = CommunicationPort
+                        ParityI = Parity
+                        StopBitI = StopBit
 
-        if DriverMasterID == 2:
-            if Active:
-                if BaurdRateI != BaurdRate and DatabitsI != Databits and CommunicationPortI != CommunicationPort and ParityI != Parity and StopBitI != StopBit:
-                    client = ModbusClient(
-                        method='rtu',
-                        port=CommunicationPort,
-                        baudrate=BaurdRate,
-                        timeout=StopBit,
-                        parity=Parity[0:1],
-                        stopbits=StopBit,
-                        bytesize=Databits
-                    )
-                    BaurdRateI = BaurdRate
-                    DatabitsI = Databits
-                    CommunicationPortI = CommunicationPort
-                    ParityI = Parity
-                    StopBitI = StopBit
+                        client.connect()
 
-                    client.connect()
+                        rtu = ModbusRTU(driverDetail[0], SlavID, client, FrequncyOfGetData, driverDetail[1], dt_string)
+                        rtu.start()
 
-                    rtu = ModbusRTU(driverDetail[0], SlavID, client, FrequncyOfGetData, driverDetail[1], dt_string)
-                    rtu.start()
+            elif DriverMasterID == 1:
+                if Active:
+                    modbus_client = ModbusConnection(SlavID, NetworkAddress, Port).connection()
+                    if modbus_client.open():
+                        DeviceConnectionLog().insert(driverDetail[0], True, "Driver connection open", currentDateTime())
+                        logger.info(
+                                f'Port {str(Port)} Server at: {NetworkAddress}slavId {SlavID}')
 
-        elif DriverMasterID == 1:
-            if Active:
-                tcp = ModbusMultiReg(driverDetail[0], SlavID, client, FrequncyOfGetData, NetworkAddress, Port,
-                                driverDetail[1], dt_string)
-                tcp.start()
+                        tcp = ModbusTCP(driverDetail[0], SlavID, modbus_client, FrequncyOfGetData, NetworkAddress, Port,
+                                        driverDetail[1], dt_string, "synfodriver" + str(driverDetail[0]))
+                        tcp.start()
+
+        except:
+            DeviceConnectionLog().insert(driverDetail[0], False,
+                                         'Client not connect', currentDateTime())
 
 
 if __name__ == '__main__':
@@ -69,4 +80,3 @@ if __name__ == '__main__':
         modbusConnector()
     except Exception as ex:
         print(ex)
-
